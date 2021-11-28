@@ -10,8 +10,8 @@ class BasicArduinoOutputModule:
     def init_connection(self):
         self.ser = Serial(self.port, self.baudrate, timeout=0)
 
-    def send_message(self, message):
-        self.ser.write(message.encode('UTF-8'))
+    def send_message(self, message, format):
+        self.ser.write(message.encode(format))
 
 
 class BasicArduinoOutputModuleTCPSerial:
@@ -21,9 +21,9 @@ class BasicArduinoOutputModuleTCPSerial:
         self.port = port
         self.s.connect((self.host, self.port))
 
-    def send_message(self, message):
+    def send_message(self, message, format):
         
-        self.s.sendall(message.encode('UTF-8'))
+        self.s.sendall(message.encode(format))
         data = self.s.recv(1024)
         print('received ' + repr(data))
         

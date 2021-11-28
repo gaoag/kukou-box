@@ -109,7 +109,7 @@ def calc_journal_scores(journal_string):
     # we construct a connection score by looking at the 5 closest docs by average distance metric. 
     # closer docs get a bit higher of a vote.
     # we do this for all the emotions involved
-    scores = {'friendship':0, 'relaxation':0}
+    scores = {'connection':0, 'rest':0}
     closest_docs = []
     for (emotionpos, emotionneg) in [('friendship', 'loneliness'), ('relaxation', 'stress')]:
 
@@ -120,15 +120,26 @@ def calc_journal_scores(journal_string):
         for i, (distance, doc_id) in enumerate(sorted_closest_docs[:num_docs_to_consider_in_score]):
             emotion = doc_to_emotion[doc_id]
             discount_factor = 0.8**(i)
-            scores[emotionpos] += ({emotionpos:1, emotionneg:-1}[emotion]*discount_factor)
+			if emotionpos == 'friendship':
+				emotion = 'connection'
+			if emotionpos == 'relaxation':
+				emotion = 'rest'
+
+            scores[emotion] += ({emotionpos:1, emotionneg:-1}[emotion]*discount_factor)
         
-    
+
+
 
     output_passages = {}
     for doc_id in closest_docs:
         sentences_to_return = doc_to_sentences[doc_id]
         word_count = doc_to_wordcounts[doc_id]
         emotion = doc_to_emotion[doc_id]
+		
+		if emotion == 'loneliness' or emotion == 'friendship':
+			emotion = 'connection'
+		if emotion == 'relaxation' or emotion == 'stress':
+			emotion = 'rest'
 
         if word_count > 110:
             # if the passage is quite long, then identify the closest moving chunks. We should try both? I think moving window makes more sense.
@@ -154,7 +165,20 @@ def calc_journal_scores(journal_string):
 
         output_passages[emotion] = ' '.join(sentences_to_return)
 
+	# hacky fix for the arduino 
+	for emotion, score in scores.items():
+		output_passages[emotion + "_score"] = score
+
+	journal_wordcount = len(journal_string.split())
+	if journal_wordcount > 150:
+		chewy_score = 100
+	else:
+		chewy_score = journal_wordcount*100/150
+
+	output_passages['chewiness_score'] = chewy_score
     
+
+
     return output_passages, scores
 
 
