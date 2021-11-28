@@ -7,6 +7,8 @@ CAMERA_ID = 0 # TODO
 
 app = Flask(__name__)
 
+
+
 @app.route("/submit")
 def submit():
 	'''Submit a ticket, get back a ticket ID, or possibly the QR code image itself.'''
@@ -21,6 +23,20 @@ def get_ticket(ticket_id):
 def delete_ticket(ticket_id):
 	'''Once ticket is used, remove it from the system.'''
 	return f"deleting {ticket_id}"
+
+@app.route("/submit_journal_text", methods=['POST'])
+def submittext():
+	'''
+	   1. process journal text to construct scores + document mapping.
+	   2. save information in a csv; associate with a qr code.
+	   3. tell arduino to print QR code.
+	'''
+	journal_text = request.get_data().decode('utf-8')
+	results = calc_journal_scores(journal_text)
+	associated_code = generate_qr_code()
+	save_results(results, associated_code, timestamp)
+
+	return f"submitting journal text"
 
 def check_QR():
 	'''Check camera for a QR code. If one appears, process it and send data to Arduino
