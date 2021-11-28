@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="header">
+            <img class="fullscreen-button" id="fullscreen-button" onclick="toggleFullscreen()" src="./assets/icons/open.svg" /> 
+        </div>
+
+        <div class="form">
+            <div class="prompt">q2</div>
+ sdf           <textarea class="text-area" id="text-area" placeholder="Respond here..."></textarea>
+            <button class="next-button" onclick="saveToText();">Submit</button>
+        </div>
+
+    </div>
+
+</body>
+
+<script>
+    // fullscreen js
+    var elem = document.documentElement;
+    var fullscreenOpen = false;
+
+    function toggleFullscreen() {
+        var iconPath = ""
+        // console.log(fullscreenOpen);
+        if (fullscreenOpen) {
+            fullscreenOpen = false;
+            document.getElementById('fullscreen-button').src = "./assets/icons/open.svg";
+            return closeFullscreen();
+        } else {
+            fullscreenOpen = true;
+            document.getElementById('fullscreen-button').src = "./assets/icons/close.svg";
+            return openFullscreen();
+        }
+    }
+
+    function openFullscreen() {
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+            elem.msRequestFullscreen();
+        }
+    }
+
+    function closeFullscreen() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* Safari */
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+            document.msExitFullscreen();
+        }
+    }
+
+    // save to textarea content to txt file
+    function saveToText() {
+        var text = document.getElementById("text-area").value;
+        alert(text);
+    }
+    
+</script>
+
+</html>
