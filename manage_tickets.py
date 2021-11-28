@@ -1,6 +1,6 @@
 # TODO: Data storage, including a timeout column so that people have to wait x minutes before returning.
 
-def store_ticket(id): # TODO: The rest of the data
+def save_ticket(id, results, qr_code_path): # TODO: The rest of the data
 	'''Saves the ticket to the CSV file.'''
 	pass
 

@@ -31,7 +31,6 @@ def read_qr(frame, render=False):
 
 		barcode_data = barcode.data.decode("utf-8")
 		barcode_type = barcode.type
-		print(f"{barcode_data} | {barcode_type}")
 		if barcode_type == "QRCODE": # FIXME: Can I use a constant from lib for this?
 			vals.append(barcode_data)
 

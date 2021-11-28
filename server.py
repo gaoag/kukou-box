@@ -1,5 +1,8 @@
-from flask import Flask
+from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
+from imutils.video import VideoStream
+import time
+import math
 from doc_compare import *
 from command_arduino import *
 from qr import *
@@ -7,10 +10,9 @@ from datetime import datetime
 from csv import writer
 import shortuuid
 import json
+from manage_tickets import *
 
-
-MAIN_LOOP_DELAY_S = 1
-CAMERA_ID = 0 # TODO
+CAMERA_ID = 1 # TODO: Set to external webcam id.
 
 app = Flask(__name__)
 
@@ -18,7 +20,7 @@ app = Flask(__name__)
 arduino_controller = BasicArduinoOutputModule(0)
 arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
 
-
+vs = VideoStream(src=CAMERA_ID).start()
 
 def save_results(results, journal_result_id, timestamp):
 	outlist = [results['connection'], results['rest'], results['connection_score'], results['rest_score'], results['chewiness_score'], journal_result_id, timestamp]
@@ -43,7 +45,7 @@ def delete_ticket(ticket_id):
 	return f"deleting {ticket_id}"
 
 @app.route("/submit_journal_text", methods=['POST'])
-def submittext():
+def submit_text():
 	'''
 	   1. process journal text to construct scores + document mapping.
 	   2. save information in a csv; associate with a qr code.
@@ -58,13 +60,12 @@ def submittext():
 
 	return f"submitting journal text"
 
-
-
 def check_barcode():
-	'''Check camera for a barcode. If a barcode exists, then '''
-	barcode_exists = False
-	# do something to modify barcode_exists!
-	if barcode_exists:
+	'''Check camera for a QR code. If one appears, process it and send data to Arduino
+	to start making hot chocolate.'''
+	qr_codes = read_qr_from_camera(vs)
+	if len(qr_codes) > 0:
+		print(f"Found QR code: {qr_codes[0]}")
 		# pull up the associated stuff by reading in the associated text
 		barcode_text = read_barcode_text()
 		tickets = pd.read_csv("./data/tickets.csv")
@@ -83,13 +84,14 @@ def check_barcode():
 			data_json = json.dumps(data)
 			arduino_controller.send_message(data_json, format='ascii')
 		}
-	print('checked QR')
-
 
 
 def main():
 	'''Listen for QR code and handle Arduino outputs until quit.'''
-	
+	print("Starting up Kukou Box...")
+
+	# Get newest available ticket number from CSV database
+
 	# Credit: https://stackoverflow.com/a/48073789
 	scheduler = BackgroundScheduler()
 	job = scheduler.add_job(check_QR, 'interval', seconds=10)
