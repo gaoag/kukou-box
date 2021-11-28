@@ -40,6 +40,13 @@ def save_results(results, journal_result_id, timestamp):
 		writer_object.writerow(outlist)
 		f.close()
 
+@app.route("/submit_journal_text_partial", methods=['POST'])
+def submit_journal_text_partial():
+	jsdata = request.data
+	dict1 = json.loads(jsdata)
+	journal_dict.update(dict1)
+	return "added q1"
+
 @app.route("/submit_journal_text", methods=['POST'])
 def submit_text():
 	'''
