@@ -1,7 +1,7 @@
 // fullscreen js
 var elem = document.documentElement;
 var fullscreenOpen = false;
-var submissionString = "";
+var submissionString = {};
 
 
 function toggleFullscreen() {
@@ -42,4 +42,14 @@ function closeFullscreen() {
 function saveToText() {
     var text = document.getElementById("text-area").value;
     alert(text);
+}
+
+function addq1() {
+    submissionString["q1"] = document.getElementById("text-area").value;
+}
+
+function addq2AndPost() {
+    submissionString["q2"] = document.getElementById("text-area").value;
+    // post 
+    
 }
