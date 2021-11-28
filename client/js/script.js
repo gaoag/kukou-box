@@ -1,6 +1,8 @@
 // fullscreen js
 var elem = document.documentElement;
 var fullscreenOpen = false;
+var submissionString = "";
+
 
 function toggleFullscreen() {
     var iconPath = ""

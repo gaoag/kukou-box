@@ -3,6 +3,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import re
+import json
 import uuid
 
 alphabets= "([A-Za-z])"
@@ -75,6 +76,8 @@ def moving_window_embedding(sentence_list, n=3):
         
     return embeddings
         
+
+    
 def calc_journal_scores(journal_string):
     whole_journal_embed = model.encode(journal_string)
 
@@ -154,6 +157,102 @@ def calc_journal_scores(journal_string):
 
     
     return output_passages, scores
+
+    
+def calc_journal_scores_whole(jstringjson):
+
+    jstring_dict = json.loads(jstringjson)
+
+    outdict = {'rest_score':0, 'connection_score':0, 'chewiness_score':0, 'rest':'', 'connection':''}
+
+    print(jstring_dict)
+    journal_wordcount = 0
+
+    for q_num, journal_string in jstring_dict.items():    
+        journal_wordcount += len(journal_string.split())
+
+        whole_journal_embed = model.encode(journal_string)
+
+        journal_sentences = [s for s in split_into_sentences(journal_string) if s != "."]
+        journal_sentence_embeddings = np.array(model.encode(journal_sentences))
+        avg_journal_embed = np.mean(journal_sentence_embeddings, axis=0)
+
+        if q_num == "q1":
+            emotionpos = 'relaxation'
+            emotionneg = 'stress'
+            emotion_axis = 'rest'
+        elif q_num == "q2":
+            emotionpos = 'friendship'
+            emotionneg = 'loneliness'
+            emotion_axis = 'connection'
+
+        doc_ids_distances = {emotionpos:[], emotionneg:[]} # {'emotion':[listofrelevantembeddingdistances]}
+
+
+        for doc_id, doc_embeddings in doc_to_docembeddings.items():
+            emotion = doc_to_emotion[doc_id]
+
+            if emotion == emotionpos or emotion == emotionneg:
+                avg_doc_embed = doc_embeddings['average']
+                whole_doc_embed = doc_embeddings['whole']
+                
+                # we have to have some way of choosing NOT to add a message:
+                avg2avg = np.linalg.norm(avg_journal_embed - avg_doc_embed)
+                avg2whole = np.linalg.norm(avg_journal_embed - whole_doc_embed)
+                whole2whole = np.linalg.norm(whole_journal_embed - whole_doc_embed)
+                whole2avg = np.linalg.norm(whole_journal_embed - avg_doc_embed)
+                
+                mean_distance = sum([avg2avg, avg2whole, whole2whole, whole2avg])/4
+
+                doc_ids_distances[emotion].append((mean_distance, doc_id))
+
+        # now, for each emotion-pair, find the doc that is closest by the average of all distance metrics. 
+        sorted_closest_docs = sorted(doc_ids_distances[emotionpos] + doc_ids_distances[emotionneg], key=lambda x: x[0])
+        closest_doc_dist, closest_doc_id = sorted_closest_docs[0]
+
+        for i, (distance, doc_id) in enumerate(sorted_closest_docs[:num_docs_to_consider_in_score]):
+            emotion = doc_to_emotion[doc_id]
+            discount_factor = 0.8**(i)
+            outdict[emotion_axis + "_score"] += ({emotionpos:1, emotionneg:-1}[emotion]*discount_factor)
+
+        sentences_to_return = doc_to_sentences[closest_doc_id]
+        word_count = doc_to_wordcounts[closest_doc_id]
+        emotion = doc_to_emotion[closest_doc_id]
+
+
+        if word_count > 110:
+            # if the passage is quite long, then identify the closest moving chunks. We should try both? I think moving window makes more sense.
+            moving_window_embeds = doc_to_sentembeddings[closest_doc_id]['moving_window']
+            moving_avg_embeds = doc_to_sentembeddings[closest_doc_id]['moving_average']
+            
+            chunk_distances_a2w = []
+            chunk_distances_w2w = []
+            # a2w makes sense here:
+            for i, embed in enumerate(moving_window_embeds):
+                a2wj = np.linalg.norm(avg_journal_embed - embed)
+                w2wj = np.linalg.norm(whole_journal_embed - embed)
+            
+                chunk_distances_a2w.append((i, a2wj))
+                chunk_distances_w2w.append((i, w2wj))
+                
+            min_idx_a2wj = sorted(chunk_distances_a2w, key=lambda x:x[1])[0][0]
+            min_idx_w2wj = sorted(chunk_distances_w2w, key=lambda x:x[1])[0][0]
+        
+        
+            sentences_to_return_a2wj = sentences_to_return[min_idx_a2wj:min_idx_a2wj+window_size]
+            sentences_to_return = sentences_to_return[min_idx_w2wj:min_idx_w2wj+window_size] # i forget which one i liked more so i left both in
+
+        outdict[emotion_axis] = sentences_to_return
+    
+    
+    if journal_wordcount > 200:
+        chewy_score = 100
+    else:
+        chewy_score = journal_wordcount*100/200
+
+    outdict['chewiness_score'] = chewy_score
+    
+    return outdict
 
 
 

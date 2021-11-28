@@ -52,7 +52,9 @@ def submit_text():
 	   3. tell arduino to print QR code.
 	'''
 	journal_text = request.get_data().decode('utf-8')
-	results = calc_journal_scores(journal_text)
+	# TODO - this needs to be a JSON that goes {"q1":"journal text", "q2":"some more journal text"}
+
+	results = calc_journal_scores_whole(jstringjson)
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
 	journal_result_id = str(shortuuid.uuid()[:10])
 	currenttime = datetime.now()
