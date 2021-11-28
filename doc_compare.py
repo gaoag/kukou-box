@@ -12,8 +12,6 @@ starters = "(Mr|Mrs|Ms|Dr|He\s|She\s|It\s|They\s|Their\s|Our\s|We\s|But\s|Howeve
 acronyms = "([A-Z][.][A-Z][.](?:[A-Z][.])?)"
 websites = "[.](com|net|org|io|gov)"
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
 # hyperparameters:
 window_size = 4
 connection_threshold = 1.1 # we should construct some form of metric more rigorously here...
@@ -21,12 +19,14 @@ relaxation_threshold = 1.1
 num_docs_to_consider_in_score = 5
 
 # load dicts from memory
-doc_to_emotion = np.load('doc_to_emotion.npy', allow_pickle=True)[()] # docid: emotion
-doc_to_source = np.load('doc_to_source.npy', allow_pickle=True)[()] # docid: source
-doc_to_wordcounts = np.load('doc_to_wordcounts.npy', allow_pickle=True)[()] # docid: length
-doc_to_sentences = np.load('doc_to_sentences.npy', allow_pickle=True)[()] # docid: [list of sentences]
-doc_to_sentembeddings = np.load('doc_to_sentembeddings.npy', allow_pickle=True)[()] # docid: {raw:[listoforderedembeddings], rolling_average:[listofslidingavgs], windowed:[listofwindoweds]}
-doc_to_docembeddings = np.load('doc_to_docembeddings.npy', allow_pickle=True)[()] # docid: {'average':embed, 'whole':embed}
+doc_to_emotion = np.load('./journal_analysis/doc_to_emotion.npy', allow_pickle=True)[()] # docid: emotion
+doc_to_source = np.load('./journal_analysis/doc_to_source.npy', allow_pickle=True)[()] # docid: source
+doc_to_wordcounts = np.load('./journal_analysis/doc_to_wordcounts.npy', allow_pickle=True)[()] # docid: length
+doc_to_sentences = np.load('./journal_analysis/doc_to_sentences.npy', allow_pickle=True)[()] # docid: [list of sentences]
+doc_to_sentembeddings = np.load('./journal_analysis/doc_to_sentembeddings.npy', allow_pickle=True)[()] # docid: {raw:[listoforderedembeddings], rolling_average:[listofslidingavgs], windowed:[listofwindoweds]}
+doc_to_docembeddings = np.load('./journal_analysis/doc_to_docembeddings.npy', allow_pickle=True)[()] # docid: {'average':embed, 'whole':embed}
+
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
 def split_into_sentences(text):
@@ -76,27 +76,22 @@ def moving_window_embedding(sentence_list, n=3):
     return embeddings
         
 def calc_journal_scores(journal_string):
-	'''
-	Takes in a journal string.
-	Returns N closest passages, where N is the # of emotion axes (hardcoded at 2 right now), as well as N scores, in the following format:
-	(output passages, scores) <- tuple
-	output passages = {'emotion': 'sentencestring', 'emotion2':'sentencestring'}
-	scores = {'feeling':float, 'feeling':float}
-	'''
+    '''Takes in a journal string.
+    Returns N closest passages, where N is the # of emotion axes (hardcoded at 2 right now), as well as N scores, in the following format:
+    (output passages, scores) <- tuple
+    output passages = {'emotion': 'sentencestring', 'emotion2':'sentencestring'}
+    scores = {'feeling':float, 'feeling':float}'''
     whole_journal_embed = model.encode(journal_string)
-
     journal_sentences = [s for s in split_into_sentences(journal_string) if s != "."]
     journal_sentence_embeddings = np.array(model.encode(journal_sentences))
     avg_journal_embed = np.mean(journal_sentence_embeddings, axis=0)
-
-    doc_ids_distances = {e:[] for e in ['friendship', 'loneliness', 'relaxation', 'stress']} # {'emotion':[listofrelevantembeddingdistances]}
-
-
+    doc_ids_distances = {e:[] for e in ['friendship', 'loneliness', 'relaxation', 'stress']}
+    
     for doc_id, doc_embeddings in doc_to_docembeddings.items():
         avg_doc_embed = doc_embeddings['average']
         whole_doc_embed = doc_embeddings['whole']
-        
-        # we have to have some way of choosing NOT to add a message:
+
+	# we have to have some way of choosing NOT to add a message:
         avg2avg = np.linalg.norm(avg_journal_embed - avg_doc_embed)
         avg2whole = np.linalg.norm(avg_journal_embed - whole_doc_embed)
         whole2whole = np.linalg.norm(whole_journal_embed - whole_doc_embed)
