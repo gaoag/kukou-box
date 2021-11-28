@@ -5,6 +5,7 @@ import time
 import math
 from command_arduino import *
 # from qr import *
+from imutils.video import VideoStream
 from datetime import datetime
 from csv import writer
 import shortuuid
@@ -12,9 +13,12 @@ import json
 from manage_tickets import *
 from doc_compare import *
 from flask_cors import CORS, cross_origin
-
+from doc_compare import *
+from command_arduino import *
+from qr import *
 
 CAMERA_ID = 1 # TODO: Set to external webcam id.
+TICKET_DELAY_S = 900
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -36,28 +40,6 @@ def save_results(results, journal_result_id, timestamp):
 		writer_object.writerow(outlist)
 		f.close()
 
-@app.route("/submit")
-def submit():
-	'''Submit a ticket, get back a ticket ID, or possibly the QR code image itself.'''
-	return "submit"
-
-@app.route("/get/<int:ticket_id>")
-def get_ticket(ticket_id):
-	'''Get information associated with a ticket ID.'''
-	return f"getting {ticket_id}"
-
-@app.route("/delete/<int:ticket_id>")
-def delete_ticket(ticket_id):
-	'''Once ticket is used, remove it from the system.'''
-	return f"deleting {ticket_id}"
-
-@app.route("/submit_journal_text_partial", methods=['POST'])
-def submit_journal_text_partial():
-	jsdata = request.data
-	dict1 = json.loads(jsdata)
-	journal_dict.update(dict1)
-	return "added q1"
-
 @app.route("/submit_journal_text", methods=['POST'])
 def submit_text():
 	'''
@@ -72,29 +54,35 @@ def submit_text():
 	journal_dict.clear()
 
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
-	journal_result_id = str(shortuuid.uuid()[:10])
+	journal_result_id = str(shortuuid.uuid()[:10]) # FIXME: I think we need either 8 or 12 digits depending on which 
 	currenttime = datetime.now()
 	save_results(results, journal_result_id, currenttime)
+	
+	# Send barcode to Arduino for initial receipt
+	data = { 'type': "INIT", 'id': journal_result_id }
+	data_json = json.dumps(data)
+	arduino_controller.send_message(data_json, format='ascii')
 
 	return f"submitting journal text"
 
 def check_barcode():
 	'''Check camera for a QR code. If one appears, process it and send data to Arduino
 	to start making hot chocolate.'''
-	qr_codes = read_qr_from_camera(vs)
-	if len(qr_codes) > 0:
-		print(f"Found QR code: {qr_codes[0]}")
+	barcodes = read_from_camera(vs, filter="CODE93")
+	if len(barcodes) > 0:
+		print(f"Found QR code: {barcodes[0]}")
 		# pull up the associated stuff by reading in the associated text
-		barcode_text = read_barcode_text()
+		barcode_text = barcodes[0][:-1] # Chop off the suffix -8
 		tickets = pd.read_csv("./data/tickets.csv")
 		entry = tickets[tickets['journal_id'] == barcode_text]
 		timestamp = entry['timestamp'].iloc[0]
 		timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-		if ((datetime.now() - timestampobj).seconds < 900):
-			return "Do nothing! It's not time yet."
+		if ((datetime.now() - timestampobj).seconds < TICKET_DELAY_S):
+			return # "Do nothing! It's not time yet."
 		else:
 			# construct dictionary to send to the arduino
 			data = {}
+			data['type'] = "BREW"
 			data['connection'] = str(entry['connection'].iloc[0])
 			data['rest'] = str(entry['rest'].iloc[0])
 			data['connection_score'] = entry['connection_score'].iloc[0]
@@ -106,12 +94,9 @@ def check_barcode():
 def main():
 	'''Listen for QR code and handle Arduino outputs until quit.'''
 	print("Starting up Kukou Box...")
-
-	# Get newest available ticket number from CSV database
-
 	# Credit: https://stackoverflow.com/a/48073789
-	# scheduler = BackgroundScheduler()
-	# job = scheduler.add_job(check_QR, 'interval', seconds=10)
-	# scheduler.start()
+	scheduler = BackgroundScheduler()
+	job = scheduler.add_job(check_barcode, 'interval', seconds=10)
+	scheduler.start()
 
 main()
