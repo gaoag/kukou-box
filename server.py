@@ -1,26 +1,32 @@
 from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
-from imutils.video import VideoStream
+# from imutils.video import VideoStream
 import time
 import math
-from doc_compare import *
 from command_arduino import *
-from qr import *
+# from qr import *
 from datetime import datetime
 from csv import writer
 import shortuuid
 import json
 from manage_tickets import *
+from doc_compare import *
+from flask_cors import CORS, cross_origin
+
 
 CAMERA_ID = 1 # TODO: Set to external webcam id.
 
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 # what port number do we use?
 arduino_controller = BasicArduinoOutputModule(0)
 arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
 
-vs = VideoStream(src=CAMERA_ID).start()
+journal_dict = {}
+
+# vs = VideoStream(src=CAMERA_ID).start()
 
 def save_results(results, journal_result_id, timestamp):
 	outlist = [results['connection'], results['rest'], results['connection_score'], results['rest_score'], results['chewiness_score'], journal_result_id, timestamp]
@@ -28,6 +34,7 @@ def save_results(results, journal_result_id, timestamp):
 	with open("./data/tickets.csv", 'a') as f:
 		writer_object = writer(f)
 		writer_object.writerow(outlist)
+		f.close()
 
 @app.route("/submit")
 def submit():
@@ -44,6 +51,13 @@ def delete_ticket(ticket_id):
 	'''Once ticket is used, remove it from the system.'''
 	return f"deleting {ticket_id}"
 
+@app.route("/submit_journal_text_partial", methods=['POST'])
+def submit_journal_text_partial():
+	jsdata = request.data
+	dict1 = json.loads(jsdata)
+	journal_dict.update(dict1)
+	return "added q1"
+
 @app.route("/submit_journal_text", methods=['POST'])
 def submit_text():
 	'''
@@ -51,10 +65,12 @@ def submit_text():
 	   2. save information in a csv; associate with a qr code.
 	   3. tell arduino to print QR code.
 	'''
-	journal_text = request.get_data().decode('utf-8')
-	# TODO - this needs to be a JSON that goes {"q1":"journal text", "q2":"some more journal text"}
+	jsdata = request.data
+	dictpartial = json.loads(jsdata)
+	journal_dict.update(dictpartial)
+	results = calc_journal_scores_whole(journal_dict)
+	journal_dict.clear()
 
-	results = calc_journal_scores_whole(jstringjson)
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
 	journal_result_id = str(shortuuid.uuid()[:10])
 	currenttime = datetime.now()
@@ -74,9 +90,9 @@ def check_barcode():
 		entry = tickets[tickets['journal_id'] == barcode_text]
 		timestamp = entry['timestamp'].iloc[0]
 		timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-		if ((datetime.now() - timestampobj).seconds < 900) {
+		if ((datetime.now() - timestampobj).seconds < 900):
 			return "Do nothing! It's not time yet."
-		} else {
+		else:
 			# construct dictionary to send to the arduino
 			data = {}
 			data['connection'] = str(entry['connection'].iloc[0])
@@ -85,7 +101,6 @@ def check_barcode():
 			data['rest_score'] = entry['rest_score'].iloc[0]
 			data_json = json.dumps(data)
 			arduino_controller.send_message(data_json, format='ascii')
-		}
 
 
 def main():
@@ -95,8 +110,8 @@ def main():
 	# Get newest available ticket number from CSV database
 
 	# Credit: https://stackoverflow.com/a/48073789
-	scheduler = BackgroundScheduler()
-	job = scheduler.add_job(check_QR, 'interval', seconds=10)
-	scheduler.start()
+	# scheduler = BackgroundScheduler()
+	# job = scheduler.add_job(check_QR, 'interval', seconds=10)
+	# scheduler.start()
 
 main()

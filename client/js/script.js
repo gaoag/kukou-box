@@ -46,10 +46,28 @@ function saveToText() {
 
 function addq1() {
     submissionString["q1"] = document.getElementById("text-area").value;
+    console.log(submissionString)
+    $.ajax({
+        url: "http://127.0.0.1:5000/submit_journal_text_partial", 
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(submissionString),
+        success: function( data ) { 
+            document.getElementById('save-button').remove();
+        }   
+    });
 }
 
 function addq2AndPost() {
     submissionString["q2"] = document.getElementById("text-area").value;
-    // post 
-    
+    console.log(submissionString)
+    $.ajax({
+        url: "http://127.0.0.1:5000/submit_journal_text", 
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(submissionString),
+        success: function( data ) { 
+            document.getElementById('save-button').remove();
+        }   
+    });
 }
