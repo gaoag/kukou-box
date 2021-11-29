@@ -16,7 +16,7 @@ from qr import *
 
 CAMERA_ID = 1 # TODO: Set to external webcam id.
 TICKET_DELAY_S = 900
-ARDUINO_PORT = "/dev/cu.usbmodem2101" # TODO
+ARDUINO_PORT = "/dev/cu.usbmodem101" # TODO
 BAUDRATE = 9600
 
 app = Flask(__name__)
@@ -78,27 +78,38 @@ def submit_text():
 def check_barcode():
 	'''Check camera for a QR code. If one appears, process it and send data to Arduino
 	to start making hot chocolate.'''
-	barcodes = read_from_camera(vs, filter="CODE93")
+	barcodes = read_from_camera(vs, filter="ANY") # filter="CODE93")
 	if len(barcodes) > 0:
 		print(f"Found QR code: {barcodes[0]}")
 		# pull up the associated stuff by reading in the associated text
-		barcode_text = barcodes[0][:-1] # Chop off the suffix -8
-		tickets = pd.read_csv("./data/tickets.csv")
-		entry = tickets[tickets['journal_id'] == barcode_text]
+		barcode_text = barcodes[0]
+		brew(barcode_text)
+
+def brew(id):
+	tickets = pd.read_csv("./data/tickets.csv")
+	entry = tickets[tickets['journal_id'] == id]
+	try:
 		timestamp = entry['timestamp'].iloc[0]
-		timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-		if ((datetime.now() - timestampobj).seconds < TICKET_DELAY_S):
-			return # "Do nothing! It's not time yet."
-		else:
-			# construct dictionary to send to the arduino
-			data = {}
-			data['type'] = "BREW"
-			data['connection'] = str(entry['connection'].iloc[0])
-			data['rest'] = str(entry['rest'].iloc[0])
-			data['connection_score'] = entry['connection_score'].iloc[0]
-			data['rest_score'] = entry['rest_score'].iloc[0]
-			data['chewiness_score'] = entry['chewiness_score'].iloc[0]
-			send_message(data)
+	except:
+		return False # No entries found
+	timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+	if ((datetime.now() - timestampobj).seconds < TICKET_DELAY_S):
+		return False # "Do nothing! It's not time yet."
+	# construct dictionary to send to the arduino
+	data = {}
+	data['type'] = "BREW"
+	data['connection'] = str(entry['connection'].iloc[0])
+	data['rest'] = str(entry['rest'].iloc[0])
+	data['connection_score'] = entry['connection_score'].iloc[0]
+	data['rest_score'] = entry['rest_score'].iloc[0]
+	data['chewiness_score'] = entry['chewiness_score'].iloc[0]
+	send_message(data)
+	return True
+
+@app.route("/brew/<string:id>")
+def brew_api(id):
+	res = brew(id)
+	return f"Brewing {id}: {res}"
 
 # Handy debugging/testing functions for Arduino
 
@@ -121,7 +132,7 @@ def main():
 	print("Starting up Kukou Box...")
 	# Credit: https://stackoverflow.com/a/48073789
 	scheduler = BackgroundScheduler()
-	job = scheduler.add_job(check_barcode, 'interval', seconds=10)
+	job = scheduler.add_job(check_barcode, 'interval', seconds=1)
 	scheduler.start()
 
 main()
