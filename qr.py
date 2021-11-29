@@ -12,15 +12,15 @@ def make_dir_if_not_exists(d):
 	if not os.path.isdir(f"{BASE_DIR}/{d}"):
 		os.mkdir(f"{BASE_DIR}/{d}")
 
-def generate_qr(name, data):
-	png_path = f"qr_imgs/{name}.png"
-	qr = qrcode.QRCode(version=1, box_size=10, border=0)
-	qr.add_data(data)
-	qr.make(fit=True)
-	img = qr.make_image(fill="black", back_color="white")
-	make_dir_if_not_exists("qr_imgs")
-	img.save(png_path)
-	return png_path
+# def generate_qr(name, data):
+# 	png_path = f"qr_imgs/{name}.png"
+# 	qr = qrcode.QRCode(version=1, box_size=10, border=0)
+# 	qr.add_data(data)
+# 	qr.make(fit=True)
+# 	img = qr.make_image(fill="black", back_color="white")
+# 	make_dir_if_not_exists("qr_imgs")
+# 	img.save(png_path)
+# 	return png_path
 
 def generate_barcode(name, number):
 	my_code = EAN13(str(number), writer=ImageWriter())
@@ -37,6 +37,7 @@ def read_code(frame, render=False, code_type="ANY"):
 			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
 		barcode_data = barcode.data.decode("utf-8")
 		barcode_type = barcode.type
+		print(barcode_data, barcode_type)
 		if barcode_type == code_type or code_type == "ANY":
 			vals.append(barcode_data)
 		if render:
@@ -54,5 +55,6 @@ def read_code(frame, render=False, code_type="ANY"):
 
 def read_from_camera(vs, render=False, filter="ANY"):
 	frame = vs.read()
+
 	frame = imutils.resize(frame, width=400)
 	return read_code(frame, render, filter)

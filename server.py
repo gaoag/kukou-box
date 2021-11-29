@@ -1,22 +1,22 @@
 from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from imutils.video import VideoStream
+import time
+import math
+from command_arduino import *
+from qr import *
 from serial import Serial
-from imutils.video import VideoStream
 from datetime import datetime
 from csv import writer
 import shortuuid
 import json
 from flask_cors import CORS, cross_origin
 import pandas as pd
-
 from doc_compare import *
-from doc_compare import *
-from qr import *
 
-CAMERA_ID = 1 # TODO: Set to external webcam id.
+CAMERA_ID = 0 # TODO: Set to external webcam id.
 TICKET_DELAY_S = 900
-ARDUINO_PORT = "/dev/cu.usbmodem101" # TODO
+ARDUINO_PORT = "/dev/cu.usbmodem14101" # TODO
 BAUDRATE = 9600
 
 app = Flask(__name__)
@@ -26,7 +26,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 # what port number do we use?
 # arduino_controller = BasicArduinoOutputModule(0)
 # arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
-ser = Serial(ARDUINO_PORT, BAUDRATE, timeout=0)
+ser = Serial(ARDUINO_PORT, BAUDRATE, timeout=2.5)
 
 journal_dict = {}
 
@@ -52,7 +52,7 @@ def submit_journal_text_partial():
 	return "added q1"
 
 @app.route("/submit_journal_text", methods=['POST'])
-def submit_text():
+def submit_journal_text():
 	'''
 	   1. process journal text to construct scores + document mapping.
 	   2. save information in a csv; associate with a qr code.
@@ -65,12 +65,38 @@ def submit_text():
 	journal_dict.clear()
 
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
-	journal_result_id = str(shortuuid.uuid()[:10]) # FIXME: I think we need either 8 or 12 digits depending on which 
+	journal_result_id = str(shortuuid.uuid()[:10]).upper() # FIXME: I think we need either 8 or 12 digits depending on which
 	currenttime = datetime.now()
 	save_results(results, journal_result_id, currenttime)
-	
+
 	# Send barcode to Arduino for initial receipt
-	data = { 'type': "INIT", 'id': journal_result_id }
+	data = { 't': "I", 'id': journal_result_id }
+	print(data)
+	print(results)
+	# send_message(data)
+
+	tickets = pd.read_csv("./data/tickets.csv")
+	entry = tickets[tickets['journal_id'] == journal_result_id]
+	data = {}
+	data['t'] = "B"
+	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
+		passage = "on connection - " + str(entry['connection'].iloc[0])
+	else:
+		passage = "on rest - " + str(entry['rest'].iloc[0])
+
+	passage = passage.replace("'", "")
+	passage = passage.replace('"', "")
+	# data['p'] = "he"
+	data['c_s'] = str(entry['connection_score'].iloc[0])
+	data['r_s'] = str(entry['rest_score'].iloc[0])
+	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
+	print(data)
+	send_message(data)
+	time.sleep(5)
+
+	data = {}
+	data['t'] = "R"
+	data['p'] = "hello hello this is a long passage"
 	send_message(data)
 
 	return f"submitting journal text"
@@ -84,6 +110,8 @@ def check_barcode():
 		# pull up the associated stuff by reading in the associated text
 		barcode_text = barcodes[0]
 		brew(barcode_text)
+	else:
+		print("No barcodes found")
 
 def brew(id):
 	tickets = pd.read_csv("./data/tickets.csv")
@@ -97,12 +125,17 @@ def brew(id):
 		return False # "Do nothing! It's not time yet."
 	# construct dictionary to send to the arduino
 	data = {}
-	data['type'] = "BREW"
-	data['connection'] = str(entry['connection'].iloc[0])
-	data['rest'] = str(entry['rest'].iloc[0])
-	data['connection_score'] = entry['connection_score'].iloc[0]
-	data['rest_score'] = entry['rest_score'].iloc[0]
-	data['chewiness_score'] = entry['chewiness_score'].iloc[0]
+	data['t'] = "B"
+	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
+		passage = "on connection: " + str(entry['connection'].iloc[0])
+	else:
+		passage = "on rest: " + str(entry['rest'].iloc[0])
+
+	data['p'] = passage
+	data['c_s'] = str(entry['connection_score'].iloc[0])
+	data['r_s'] = str(entry['rest_score'].iloc[0])
+	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
+	print(data)
 	send_message(data)
 	return True
 
@@ -115,16 +148,20 @@ def brew_api(id):
 
 def send_test_brew_data(co, re, ch):
 	data = {}
-	data['type'] = "BREW"
-	data['connection'] = "Connection"
-	data['rest'] = "Rest"
-	data['connection_score'] = co
-	data['rest_score'] = re
-	data['chewiness_score'] = ch
+	data['t'] = "B"
+	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
+		passage = "on connection: " + str(entry['connection'].iloc[0])
+	else:
+		passage = "on rest: " + str(entry['rest'].iloc[0])
+
+	data['p'] = passage
+	data['c_s'] = str(entry['connection_score'].iloc[0])
+	data['r_s'] = str(entry['rest_score'].iloc[0])
+	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
 	send_message(data)
 
 def send_test_init_data(id):
-	data = { 'type': "INIT", 'id': id }
+	data = { 't': "I", 'id': id }
 	send_message(data)
 
 def main():
