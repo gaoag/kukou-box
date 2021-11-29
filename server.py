@@ -36,6 +36,9 @@ def send_message(data):
 	data_json = json.dumps(data)
 	ser.write(data_json.encode('ascii'))
 
+def send_message_2(data):
+	ser.write(data)
+
 def save_results(results, journal_result_id, timestamp):
 	outlist = [results['connection'], results['rest'], results['connection_score'], results['rest_score'], results['chewiness_score'], journal_result_id, timestamp]
 
@@ -73,31 +76,8 @@ def submit_journal_text():
 	data = { 't': "I", 'id': journal_result_id }
 	print(data)
 	print(results)
-	# send_message(data)
-
-	tickets = pd.read_csv("./data/tickets.csv")
-	entry = tickets[tickets['journal_id'] == journal_result_id]
-	data = {}
-	data['t'] = "B"
-	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
-		passage = "on connection - " + str(entry['connection'].iloc[0])
-	else:
-		passage = "on rest - " + str(entry['rest'].iloc[0])
-
-	passage = passage.replace("'", "")
-	passage = passage.replace('"', "")
-	# data['p'] = "he"
-	data['c_s'] = str(entry['connection_score'].iloc[0])
-	data['r_s'] = str(entry['rest_score'].iloc[0])
-	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
-	print(data)
 	send_message(data)
-	time.sleep(5)
 
-	data = {}
-	data['t'] = "R"
-	data['p'] = "hello hello this is a long passage"
-	send_message(data)
 
 	return f"submitting journal text"
 
@@ -130,6 +110,12 @@ def check_barcode():
 			data['ch_s'] = str(entry['chewiness_score'].iloc[0])
 			print(data)
 			send_message(data)
+			
+
+
+
+
+
 	else:
 		print("checking barcode")
 
