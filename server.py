@@ -53,7 +53,7 @@ def check_barcode():
 	if len(barcodes) > 0:
 		print(f"Found QR code: {barcodes[0]}")
 		# pull up the associated stuff by reading in the associated text
-		barcode_text = barcodes[0]
+		barcode_text = barcodes[0][:-1] # Chop off the suffix -8
 		tickets = pd.read_csv("./data/tickets.csv")
 		entry = tickets[tickets['journal_id'] == barcode_text]
 		timestamp = entry['timestamp'].iloc[0]
