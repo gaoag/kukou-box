@@ -40,9 +40,14 @@ def submit_text():
 
 	results = calc_journal_scores_whole(jstringjson)
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
-	journal_result_id = str(shortuuid.uuid()[:10])
+	journal_result_id = str(shortuuid.uuid()[:10]) # FIXME: I think we need either 8 or 12 digits depending on which 
 	currenttime = datetime.now()
 	save_results(results, journal_result_id, currenttime)
+	
+	# Send barcode to Arduino for initial receipt
+	data = { 'type': "INIT", 'id': journal_result_id }
+	data_json = json.dumps(data)
+	arduino_controller.send_message(data_json, format='ascii')
 
 	return f"submitting journal text"
 
@@ -63,6 +68,7 @@ def check_barcode():
 		else:
 			# construct dictionary to send to the arduino
 			data = {}
+			data['type'] = "BREW"
 			data['connection'] = str(entry['connection'].iloc[0])
 			data['rest'] = str(entry['rest'].iloc[0])
 			data['connection_score'] = entry['connection_score'].iloc[0]
