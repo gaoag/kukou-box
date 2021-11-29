@@ -12,11 +12,11 @@ import shortuuid
 import json
 from flask_cors import CORS, cross_origin
 import pandas as pd
-
 from doc_compare import *
-CAMERA_ID = 1 # TODO: Set to external webcam id.
+
+CAMERA_ID = 0 # TODO: Set to external webcam id.
 TICKET_DELAY_S = 900
-ARDUINO_PORT = "/dev/cu.usbmodem2101" # TODO
+ARDUINO_PORT = "/dev/cu.usbmodem14101" # TODO
 BAUDRATE = 9600
 
 app = Flask(__name__)
@@ -26,7 +26,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 # what port number do we use?
 # arduino_controller = BasicArduinoOutputModule(0)
 # arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
-ser = Serial(ARDUINO_PORT, BAUDRATE, timeout=0)
+ser = Serial(ARDUINO_PORT, BAUDRATE, timeout=2.5)
 
 journal_dict = {}
 
@@ -52,7 +52,7 @@ def submit_journal_text_partial():
 	return "added q1"
 
 @app.route("/submit_journal_text", methods=['POST'])
-def submit_text():
+def submit_journal_text():
 	'''
 	   1. process journal text to construct scores + document mapping.
 	   2. save information in a csv; associate with a qr code.
@@ -65,12 +65,38 @@ def submit_text():
 	journal_dict.clear()
 
 	# results is an array that follows this convention: {'connection':passage, 'rest':passage, 'connection_score':float, 'rest_score':float, 'speed_score':float}
-	journal_result_id = str(shortuuid.uuid()[:10]).upper() # FIXME: I think we need either 8 or 12 digits depending on which 
+	journal_result_id = str(shortuuid.uuid()[:10]).upper() # FIXME: I think we need either 8 or 12 digits depending on which
 	currenttime = datetime.now()
 	save_results(results, journal_result_id, currenttime)
-	
+
 	# Send barcode to Arduino for initial receipt
 	data = { 't': "I", 'id': journal_result_id }
+	print(data)
+	print(results)
+	# send_message(data)
+
+	tickets = pd.read_csv("./data/tickets.csv")
+	entry = tickets[tickets['journal_id'] == journal_result_id]
+	data = {}
+	data['t'] = "B"
+	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
+		passage = "on connection - " + str(entry['connection'].iloc[0])
+	else:
+		passage = "on rest - " + str(entry['rest'].iloc[0])
+
+	passage = passage.replace("'", "")
+	passage = passage.replace('"', "")
+	# data['p'] = "he"
+	data['c_s'] = str(entry['connection_score'].iloc[0])
+	data['r_s'] = str(entry['rest_score'].iloc[0])
+	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
+	print(data)
+	send_message(data)
+	time.sleep(5)
+
+	data = {}
+	data['t'] = "R"
+	data['p'] = "hello hello this is a long passage"
 	send_message(data)
 
 	return f"submitting journal text"
@@ -78,31 +104,45 @@ def submit_text():
 def check_barcode():
 	'''Check camera for a QR code. If one appears, process it and send data to Arduino
 	to start making hot chocolate.'''
-	barcodes = read_from_camera(vs, filter="CODE93")
+	barcodes = read_from_camera(vs, filter="ANY") # filter="CODE93")
 	if len(barcodes) > 0:
 		print(f"Found QR code: {barcodes[0]}")
 		# pull up the associated stuff by reading in the associated text
-		barcode_text = barcodes[0][:-1] # Chop off the suffix -8
-		tickets = pd.read_csv("./data/tickets.csv")
-		entry = tickets[tickets['journal_id'] == barcode_text]
-		timestamp = entry['timestamp'].iloc[0]
-		timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-		if ((datetime.now() - timestampobj).seconds < TICKET_DELAY_S):
-			return # "Do nothing! It's not time yet."
-		else:
-			# construct dictionary to send to the arduino
-			data = {}
-			data['t'] = "B"
-			if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
-				passage = "on connection: " + str(entry['connection'].iloc[0])
-			else:
-				passage = "on rest: " + str(entry['rest'].iloc[0])
+		barcode_text = barcodes[0]
+		brew(barcode_text)
+	else:
+		print("No barcodes found")
 
-			data['p'] = passage
-			data['c_s'] = str(entry['connection_score'].iloc[0])
-			data['r_s'] = str(entry['rest_score'].iloc[0])
-			data['ch_s'] = str(entry['chewiness_score'].iloc[0])
-			send_message(data)
+def brew(id):
+	tickets = pd.read_csv("./data/tickets.csv")
+	entry = tickets[tickets['journal_id'] == id]
+	try:
+		timestamp = entry['timestamp'].iloc[0]
+	except:
+		return False # No entries found
+	timestampobj = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+	if ((datetime.now() - timestampobj).seconds < TICKET_DELAY_S):
+		return False # "Do nothing! It's not time yet."
+	# construct dictionary to send to the arduino
+	data = {}
+	data['t'] = "B"
+	if abs(entry['connection_score'].iloc[0]) > abs(entry['rest_score'].iloc[0]):
+		passage = "on connection: " + str(entry['connection'].iloc[0])
+	else:
+		passage = "on rest: " + str(entry['rest'].iloc[0])
+
+	data['p'] = passage
+	data['c_s'] = str(entry['connection_score'].iloc[0])
+	data['r_s'] = str(entry['rest_score'].iloc[0])
+	data['ch_s'] = str(entry['chewiness_score'].iloc[0])
+	print(data)
+	send_message(data)
+	return True
+
+@app.route("/brew/<string:id>")
+def brew_api(id):
+	res = brew(id)
+	return f"Brewing {id}: {res}"
 
 # Handy debugging/testing functions for Arduino
 
@@ -128,8 +168,8 @@ def main():
 	'''Listen for QR code and handle Arduino outputs until quit.'''
 	print("Starting up Kukou Box...")
 	# Credit: https://stackoverflow.com/a/48073789
-	# scheduler = BackgroundScheduler()
-	# job = scheduler.add_job(check_barcode, 'interval', seconds=10)
-	# scheduler.start()
+	scheduler = BackgroundScheduler()
+	job = scheduler.add_job(check_barcode, 'interval', seconds=1)
+	scheduler.start()
 
 main()
