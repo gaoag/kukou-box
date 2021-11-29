@@ -1,36 +1,40 @@
 from flask import Flask, request
 from apscheduler.schedulers.background import BackgroundScheduler
-# from imutils.video import VideoStream
-import time
-import math
-from command_arduino import *
-# from qr import *
+from imutils.video import VideoStream
+from serial import Serial
 from imutils.video import VideoStream
 from datetime import datetime
 from csv import writer
 import shortuuid
 import json
-from manage_tickets import *
-from doc_compare import *
 from flask_cors import CORS, cross_origin
+import pandas as pd
+
 from doc_compare import *
-from command_arduino import *
+from doc_compare import *
 from qr import *
 
 CAMERA_ID = 1 # TODO: Set to external webcam id.
 TICKET_DELAY_S = 900
+ARDUINO_PORT = "/dev/cu.usbmodem2101" # TODO
+BAUDRATE = 9600
 
 app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 # what port number do we use?
-arduino_controller = BasicArduinoOutputModule(0)
-arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
+# arduino_controller = BasicArduinoOutputModule(0)
+# arduino_controller_TCP = BasicArduinoOutputModuleTCPSerial()
+ser = Serial(ARDUINO_PORT, BAUDRATE, timeout=0)
 
 journal_dict = {}
 
-# vs = VideoStream(src=CAMERA_ID).start()
+vs = VideoStream(src=CAMERA_ID).start()
+
+def send_message(data):
+	data_json = json.dumps(data)
+	ser.write(data_json.encode('ascii'))
 
 def save_results(results, journal_result_id, timestamp):
 	outlist = [results['connection'], results['rest'], results['connection_score'], results['rest_score'], results['chewiness_score'], journal_result_id, timestamp]
@@ -67,8 +71,7 @@ def submit_text():
 	
 	# Send barcode to Arduino for initial receipt
 	data = { 'type': "INIT", 'id': journal_result_id }
-	data_json = json.dumps(data)
-	arduino_controller.send_message(data_json, format='ascii')
+	send_message(data)
 
 	return f"submitting journal text"
 
@@ -94,9 +97,24 @@ def check_barcode():
 			data['rest'] = str(entry['rest'].iloc[0])
 			data['connection_score'] = entry['connection_score'].iloc[0]
 			data['rest_score'] = entry['rest_score'].iloc[0]
-			data_json = json.dumps(data)
-			arduino_controller.send_message(data_json, format='ascii')
+			data['chewiness_score'] = entry['chewiness_score'].iloc[0]
+			send_message(data)
 
+# Handy debugging/testing functions for Arduino
+
+def send_test_brew_data(co, re, ch):
+	data = {}
+	data['type'] = "BREW"
+	data['connection'] = "Connection"
+	data['rest'] = "Rest"
+	data['connection_score'] = co
+	data['rest_score'] = re
+	data['chewiness_score'] = ch
+	send_message(data)
+
+def send_test_init_data(id):
+	data = { 'type': "INIT", 'id': id }
+	send_message(data)
 
 def main():
 	'''Listen for QR code and handle Arduino outputs until quit.'''
