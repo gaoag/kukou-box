@@ -54,7 +54,7 @@ def submit_text():
 def check_barcode():
 	'''Check camera for a QR code. If one appears, process it and send data to Arduino
 	to start making hot chocolate.'''
-	barcodes = read_barcode_from_camera(vs)
+	barcodes = read_from_camera(vs, filter="CODE93")
 	if len(barcodes) > 0:
 		print(f"Found QR code: {barcodes[0]}")
 		# pull up the associated stuff by reading in the associated text

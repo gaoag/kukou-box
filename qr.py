@@ -27,38 +27,32 @@ def generate_barcode(name, number):
 	make_dir_if_not_exists("barcode_imgs")
 	my_code.save(f"barcode_imgs/{name}")
 
-def make_reader(code_type):
-	# Source: https://www.pyimagesearch.com/2018/05/21/an-opencv-barcode-and-qr-code-scanner-with-zbar/
-	def read_code(frame, render=False):
-		barcodes = pyzbar.decode(frame)
-		vals = []
-		for barcode in barcodes:
-			if render:
-				(x, y, w, h) = barcode.rect
-				cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
-			barcode_data = barcode.data.decode("utf-8")
-			barcode_type = barcode.type
-			if barcode_type == code_type:
-				vals.append(barcode_data)
-			if render:
-				text = "{} ({})".format(barcode_data, barcode_type)
-				cv2.putText(frame, text, (x, y - 10),
-					cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+# Source: https://www.pyimagesearch.com/2018/05/21/an-opencv-barcode-and-qr-code-scanner-with-zbar/
+def read_code(frame, render=False, code_type="ANY"):
+	barcodes = pyzbar.decode(frame)
+	vals = []
+	for barcode in barcodes:
 		if render:
-			cv2.imshow("Barcode Scanner", frame)
-			key = cv2.waitKey(1) & 0xFF
-		return vals
-	return read_code
+			(x, y, w, h) = barcode.rect
+			cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 2)
+		barcode_data = barcode.data.decode("utf-8")
+		barcode_type = barcode.type
+		if barcode_type == code_type or code_type == "ANY":
+			vals.append(barcode_data)
+		if render:
+			text = "{} ({})".format(barcode_data, barcode_type)
+			cv2.putText(frame, text, (x, y - 10),
+				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+	if render:
+		cv2.imshow("Barcode Scanner", frame)
+		key = cv2.waitKey(1) & 0xFF
+	return vals
 
-read_qr = make_reader("QRCODE")
-read_barcode = make_reader("EAN13")
+# read_qr = make_reader("QRCODE")
+# read_barcode = make_reader("EAN13")
+# read_any = make_reader("ANY")
 
-def read_qr_from_camera(vs, render=False):
+def read_from_camera(vs, render=False, filter="ANY"):
 	frame = vs.read()
 	frame = imutils.resize(frame, width=400)
-	return read_qr(frame, render)
-
-def read_barcode_from_camera(vs, render=False):
-	frame = vs.read()
-	frame = imutils.resize(frame, width=400)
-	return read_barcode(frame, render)
+	return read_code(frame, render, filter)
