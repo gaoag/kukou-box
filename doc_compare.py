@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import re
 import uuid
+import math
 
 alphabets= "([A-Za-z])"
 prefixes = "(Mr|St|Mrs|Ms|Dr)[.]"
@@ -239,6 +240,8 @@ def calc_journal_scores_whole(jstring_dict):
             discount_factor = 0.8**(i)
             outdict[emotion_axis + "_score"] += ({emotionpos:1, emotionneg:-1}[emotion]*discount_factor)
 
+		outdict[emotion_axis+ "_score"] = int(round(outdict[emotion_axis+ "_score"]))
+
         sentences_to_return = doc_to_sentences[closest_doc_id]
         word_count = doc_to_wordcounts[closest_doc_id]
         emotion = doc_to_emotion[closest_doc_id]
@@ -266,7 +269,7 @@ def calc_journal_scores_whole(jstring_dict):
             sentences_to_return_a2wj = sentences_to_return[min_idx_a2wj:min_idx_a2wj+window_size]
             sentences_to_return = sentences_to_return[min_idx_w2wj:min_idx_w2wj+window_size] # i forget which one i liked more so i left both in
 
-        outdict[emotion_axis] = ' '.join(sentences_to_return)
+        outdict[emotion_axis] = ' '.join(sentences_to_return) + " - " + doc_to_source[closest_doc_id]
     
     
     if journal_wordcount > 200:
@@ -274,7 +277,7 @@ def calc_journal_scores_whole(jstring_dict):
     else:
         chewy_score = journal_wordcount*100/200
 
-    outdict['chewiness_score'] = chewy_score
+    outdict['chewiness_score'] = chewy_score/25 - 2
     
     return outdict
 
