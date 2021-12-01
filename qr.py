@@ -5,22 +5,25 @@ from pyzbar import pyzbar
 import imutils
 import cv2
 import os
+from easyocr import Reader
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
+
+# -- BARCODES -- #
 
 def make_dir_if_not_exists(d):
 	if not os.path.isdir(f"{BASE_DIR}/{d}"):
 		os.mkdir(f"{BASE_DIR}/{d}")
 
-# def generate_qr(name, data):
-# 	png_path = f"qr_imgs/{name}.png"
-# 	qr = qrcode.QRCode(version=1, box_size=10, border=0)
-# 	qr.add_data(data)
-# 	qr.make(fit=True)
-# 	img = qr.make_image(fill="black", back_color="white")
-# 	make_dir_if_not_exists("qr_imgs")
-# 	img.save(png_path)
-# 	return png_path
+def generate_qr(name, data):
+	png_path = f"qr_imgs/{name}.png"
+	qr = qrcode.QRCode(version=1, box_size=10, border=0)
+	qr.add_data(data)
+	qr.make(fit=True)
+	img = qr.make_image(fill="black", back_color="white")
+	make_dir_if_not_exists("qr_imgs")
+	img.save(png_path)
+	return png_path
 
 def generate_barcode(name, number):
 	my_code = EAN13(str(number), writer=ImageWriter())
@@ -58,3 +61,17 @@ def read_from_camera(vs, render=False, filter="ANY"):
 
 	frame = imutils.resize(frame, width=400)
 	return read_code(frame, render, filter)
+
+# -- OCR -- #
+
+def read_ocr(frame):
+	reader = Reader(["en"], gpu=True)
+	results = reader.readtext(frame)
+	# print(results)
+	# Get [1] entry of each tuple, combine with spaces
+	return " ".join([x[1] for x in results])
+
+def read_ocr_from_camera(vs):
+	frame = vs.read()
+	frame = imutils.resize(frame, width=800)
+	return read_ocr(frame)
