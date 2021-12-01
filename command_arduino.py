@@ -8,7 +8,7 @@ class BasicArduinoOutputModule:
         self.ser = None
 
     def init_connection(self):
-        self.ser = Serial(self.port, self.baudrate, timeout=0)
+        self.ser = Serial(self.port, self.baudrate, timeout=2.5)
 
     def send_message(self, message, format):
         self.ser.write(message.encode(format))

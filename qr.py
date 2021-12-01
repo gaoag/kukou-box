@@ -65,13 +65,13 @@ def read_from_camera(vs, render=False, filter="ANY"):
 # -- OCR -- #
 
 def read_ocr(frame):
-	reader = Reader(["en"], gpu=True)
-	results = reader.readtext(frame)
+	reader = Reader(["en"], gpu=False)
+	results = reader.readtext(frame, allowlist="0123456789")
 	# print(results)
 	# Get [1] entry of each tuple, combine with spaces
 	return " ".join([x[1] for x in results])
 
-def read_ocr_from_camera(vs):
+def read_ocr_from_camera(vs, filter=""):
 	frame = vs.read()
 	frame = imutils.resize(frame, width=800)
 	return read_ocr(frame)

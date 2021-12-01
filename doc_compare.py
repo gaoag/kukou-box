@@ -202,7 +202,7 @@ def calc_journal_scores_whole(jstring_dict):
         avg_journal_embed = np.mean(journal_sentence_embeddings, axis=0)
 
         if q_num == "q1":
-            emotionpos = 'relaxation'
+            emotionpos = 'rest'
             emotionneg = 'stress'
             emotion_axis = 'rest'
         elif q_num == "q2":
@@ -271,11 +271,11 @@ def calc_journal_scores_whole(jstring_dict):
         outdict[emotion_axis] = ' '.join(sentences_to_return) + " - " + doc_to_source[closest_doc_id][0]
 
 
-    if journal_wordcount > 200:
+    if journal_wordcount > 100:
         chewy_score = 100
     else:
-        chewy_score = journal_wordcount*100/200
+        chewy_score = int(round(journal_wordcount/100))
 
-    outdict['chewiness_score'] = chewy_score/25 - 2
+    outdict['chewiness_score'] = chewy_score
 
     return outdict
