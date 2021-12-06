@@ -15,7 +15,7 @@ import pandas as pd
 from doc_compare import *
 
 CAMERA_ID = 0 # TODO: Set to external webcam id.
-TICKET_DELAY_S = 20
+TICKET_DELAY_S = 0
 ARDUINO_PORT = "/dev/cu.usbmodem14101" # TODO
 BAUDRATE = 9600
 
@@ -50,6 +50,7 @@ def save_results(results, journal_result_id, timestamp):
 
 @app.route("/submit_journal_text_partial", methods=['POST'])
 def submit_journal_text_partial():
+	journal_dict.clear()
 	jsdata = request.data
 	dict1 = json.loads(jsdata)
 	journal_dict.update(dict1)

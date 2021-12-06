@@ -9,7 +9,7 @@ Servo connectionServo, restServo, chocolateChipServo, cacaoServo;
 
 
 SoftwareSerial mySerial(RX_PIN, TX_PIN); // Declare SoftwareSerial obj first
-Adafruit_Thermal printer(&mySerial); 
+Adafruit_Thermal printer(&mySerial);
 
 String permString;
 bool gotThing = false;
@@ -41,8 +41,8 @@ void dispenseWhole(int connection_score, int rest_score, int chewy_score) {
   dispense(connectionServo, connection_score);
   dispense(restServo, rest_score);
   dispense(chocolateChipServo, chewy_score);
-  
-  
+
+
 }
 
 
@@ -60,24 +60,24 @@ void setup() {
 
   printer.setBarcodeHeight(100);
 
-  Serial.begin(9600); 
+  Serial.begin(9600);
   while(!Serial) {
   }
 
-  chocolateChipServo.attach(9); 
-  cacaoServo.attach(10); 
-  restServo.attach(11); 
-  connectionServo.attach(12); 
+  chocolateChipServo.attach(9);
+  cacaoServo.attach(10);
+  restServo.attach(11);
+  connectionServo.attach(12);
 
   connectionServo.write(0);
   restServo.write(0);
   chocolateChipServo.write(0);
   cacaoServo.write(0);
-  
 
-  
 
-  
+
+
+
 }
 
 void loop() {
@@ -93,7 +93,7 @@ void loop() {
       gotThing = true;
       Serial.println(payload);
     }
-    
+
  } else {
   return;
  }
@@ -101,16 +101,16 @@ void loop() {
   if (gotThing) {
     Serial.println(payload);
   }
-  
-  
+
+
   DeserializationError   error = deserializeJson(doc, payload);
   if (error) {
     if (error.c_str() != "EmptyInput") {
       printer.println(error.c_str());
       printer.feed(2);
     }
-    
-    Serial.println(error.c_str()); 
+
+    Serial.println(error.c_str());
     return;
   }
   else {
@@ -119,10 +119,10 @@ void loop() {
       printer.setSize('L');
       printer.println(barcodeId);
       printer.setSize('S');
-      printer.feed(1);
+      printer.feed(3);
      printer.println("Analyzing your feelings and making your drink now - itll take 5 minutes.");
      printer.println("Kukou is reading through every word ever to find some stories to sip to.");
-       
+
 //          printer.println("Making your drink now.");
        printer.feed(3);
        printer.flush();
@@ -137,8 +137,8 @@ void loop() {
        printer.println("We have assessed every atom in your brain to make this. Today, your drink has: ");
        delay(250);
 
-       
-       
+
+
        printer.print(c_s);
        printer.println(" connection");
        delay(250);
@@ -150,18 +150,22 @@ void loop() {
        delay(250);
     } else if (doc["t"] == "R") {
       const char* printout = doc["p"];
-      if (printout == ">") {
-        printer.feed(3);
+      byte len = strlen(printout);
+      if (len) {
+        if (printout[len-1] == '>') {
+          printer.println(printout);
+          printer.feed(3);
+        } else {
+        printer.println(printout); }
       }
-      printer.println(printout);
+
       printer.flush();
     }
 
     printer.sleep();
     delay(500);
     printer.wake();
-  }  
+  }
 
-  
+
 }
-    
